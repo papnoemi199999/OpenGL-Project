@@ -9,6 +9,9 @@ namespace Szeminarium1_24_02_17_2
     internal static class Program
     {
         private static List<GlCube> platformCubes = new();
+        private static List<GlArrow> arrows = new();
+
+
 
 
         private static CameraDescriptor cameraDescriptor = new();
@@ -79,7 +82,9 @@ namespace Szeminarium1_24_02_17_2
 
             LinkProgram();
 
-            Gl.Enable(EnableCap.CullFace);
+            //Gl.Enable(EnableCap.CullFace);
+            Gl.Disable(GLEnum.CullFace);
+
 
             Gl.Enable(EnableCap.DepthTest);
             Gl.DepthFunc(DepthFunction.Lequal);
@@ -177,6 +182,7 @@ namespace Szeminarium1_24_02_17_2
             SetViewerPosition();
             SetShininess();
 
+            //// PLATFORM
             int i = 0;
             float spacing = 1.27f;
 
@@ -192,6 +198,41 @@ namespace Szeminarium1_24_02_17_2
                     i++;
                 }
             }
+            //---------------------
+            ///ARROWS
+
+            var arrowTransforms = new[]
+            {
+                // Felső nyíl (felfelé)
+                Matrix4X4.CreateScale<float>(0.9f) *
+                Matrix4X4.CreateRotationX((float)Math.PI / -2) *
+                Matrix4X4.CreateTranslation(0.0f, 0.11f, -0.90f),
+
+                Matrix4X4.CreateScale<float>(0.9f) *
+                Matrix4X4.CreateRotationX((float)Math.PI / -2) *
+                Matrix4X4.CreateRotationY((float)Math.PI / -2) *
+                Matrix4X4.CreateTranslation(0.90f, 0.11f, 0f),
+
+                Matrix4X4.CreateScale<float>(0.9f) *
+                Matrix4X4.CreateRotationX((float)Math.PI / -2) *
+                Matrix4X4.CreateRotationY((float)Math.PI / 2) *
+                Matrix4X4.CreateTranslation(-0.90f, 0.11f, 0f),
+
+                Matrix4X4.CreateScale<float>(0.9f) *
+                Matrix4X4.CreateRotationX((float)Math.PI / -2) *
+                Matrix4X4.CreateRotationY((float)Math.PI) *
+                Matrix4X4.CreateTranslation(0.0f, 0.11f, 0.90f)
+            };
+
+            for (int j = 0; j < 4; j++)
+            {
+                SetModelMatrix(arrowTransforms[j]);
+                Gl.BindVertexArray(arrows[j].Vao);
+                Gl.DrawElements(GLEnum.Triangles, arrows[j].IndexArrayLength, GLEnum.UnsignedInt, null);
+                Gl.BindVertexArray(0);
+            }
+            //---------------------
+
 
             //DrawPulsingCenterCube();
 
@@ -248,6 +289,8 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetUpObjects()
         {
+            //// PLATFORM
+
             for (int row = -1; row <= 1; row++)
             {
                 for (int col = -1; col <= 1; col++)
@@ -259,21 +302,24 @@ namespace Szeminarium1_24_02_17_2
                        new float[] { 0.5f, 0.5f, 0.5f, 1f },
                        new float[] { 0.5f, 0.5f, 0.5f, 1f },
                        new float[] { 0.5f, 0.5f, 0.5f, 1f }
-                  
+
 
                     );
                     platformCubes.Add(cube);
                 }
             }
+            //---------------
+            //ARROWS
+            for (int i = 0; i < 4; i++)
+            {
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 1f, 0f, 0f, 1f })); // piros
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 0f, 1f, 0f, 1f })); // zöld
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 0f, 0f, 1f, 1f })); // kék
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 1f, 1f, 0f, 1f })); // sárga
 
-            //float[] face1Color = [1.0f, 0.0f, 0.0f, 1.0f];
-            //float[] face2Color = [0.0f, 1.0f, 0.0f, 1.0f];
-            //float[] face3Color = [0.0f, 0.0f, 1.0f, 1.0f];
-            //float[] face4Color = [1.0f, 0.0f, 1.0f, 1.0f];
-            //float[] face5Color = [0.0f, 1.0f, 1.0f, 1.0f];
-            //float[] face6Color = [1.0f, 1.0f, 0.0f, 1.0f];
 
-            //glCubeCentered = GlCube.CreateCubeWithFaceColors(Gl, face1Color, face2Color, face3Color, face4Color, face5Color, face6Color);
+            }
+            //----------------------
 
             //face1Color = [0.5f, 0.0f, 0.0f, 1.0f];
             //face2Color = [0.0f, 0.5f, 0.0f, 1.0f];
