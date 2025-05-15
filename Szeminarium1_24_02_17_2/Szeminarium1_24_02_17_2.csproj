@@ -9,10 +9,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\13001_Ryukin_Goldfish_v1_L3.obj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\13001_Ryukin_Goldfish_v1_L3.obj">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Silk.NET" Version="2.20.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="Resources\13001_Ryukin_Goldfish_diff.jpg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Shaders\FragmentShader.frag">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

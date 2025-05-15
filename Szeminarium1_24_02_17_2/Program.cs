@@ -18,6 +18,8 @@ namespace Szeminarium1_24_02_17_2
         private static double spawnCooldown = 3.0;
         private static double timeSinceLastSpawn = 0.0;
 
+        private static GlObject fish;
+
 
         private static CameraDescriptor cameraDescriptor = new();
 
@@ -247,6 +249,9 @@ namespace Szeminarium1_24_02_17_2
             SetViewerPosition();
             SetShininess();
 
+
+            DrawPulsingFish();
+
             //// PLATFORM
             int i = 0;
             float spacing = 1.27f;
@@ -305,6 +310,28 @@ namespace Szeminarium1_24_02_17_2
             //---------------------
 
 
+        }
+
+        private static unsafe void DrawPulsingFish()
+        {
+            // set material uniform to rubber
+
+            var modelMatrix =
+            Matrix4X4.CreateScale(0.11f) *
+            Matrix4X4.CreateRotationX((float)Math.PI / -2f) *  // <-- forgas X tengely menten
+            Matrix4X4.CreateTranslation(0f, 0.70f, 0f);
+
+                    SetModelMatrix(modelMatrix);
+
+            Gl.BindVertexArray(fish.Vao);
+            Gl.DrawElements(GLEnum.Triangles, fish.IndexArrayLength, GLEnum.UnsignedInt, null);
+            Gl.BindVertexArray(0);
+
+            //var modelMatrixForTable = Matrix4X4.CreateScale(0.02f, 0.02f, 0.02f);
+            //SetModelMatrix(modelMatrixForTable);
+            //Gl.BindVertexArray(table.Vao);
+            //Gl.DrawElements(GLEnum.Triangles, table.IndexArrayLength, GLEnum.UnsignedInt, null);
+            //Gl.BindVertexArray(0);
         }
 
         private static unsafe void SetModelMatrix(Matrix4X4<float> modelMatrix)
@@ -375,7 +402,7 @@ namespace Szeminarium1_24_02_17_2
             }
             //----------------------
 
-
+            fish = ObjResourceReader.CreateTeapotWithColor(Gl, new float[] { 1f, 0.5f, 0f, 1f }); // narancssárga hal
         }
 
 
