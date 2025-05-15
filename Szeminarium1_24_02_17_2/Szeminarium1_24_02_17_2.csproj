@@ -12,4 +12,13 @@
     <PackageReference Include="Silk.NET" Version="2.20.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Shaders\FragmentShader.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Shaders\VertexShader.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
