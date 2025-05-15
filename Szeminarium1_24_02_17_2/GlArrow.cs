@@ -46,17 +46,7 @@ namespace Szeminarium1_24_02_17_2
                  0.4f, 0.6f, -0.05f,  0f, 0f, -1f, //12
                  0.0f, 0.9f, -0.05f,  0f, 0f, -1f, //13
 
-
-
-
-
-
-
-
             };
-
-
-
 
             List<float> colorsList = new List<float>();
             colorsList.AddRange(face1Color);

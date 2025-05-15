@@ -9,9 +9,14 @@ namespace Szeminarium1_24_02_17_2
     internal static class Program
     {
         private static List<GlCube> platformCubes = new();
+
         private static List<GlArrow> arrows = new();
 
+        private static List<MovingArrow> movingArrows = new();
 
+        private static Random rng = new();
+        private static double spawnCooldown = 3.0;
+        private static double timeSinceLastSpawn = 0.0;
 
 
         private static CameraDescriptor cameraDescriptor = new();
@@ -25,11 +30,6 @@ namespace Szeminarium1_24_02_17_2
         private static uint program;
 
         private static float Shininess = 50;
-
-
-        //private static GlCube glCubeCentered;
-
-        //private static GlCube glCubeRotating;
 
         private const string ModelMatrixVariableName = "uModel";
         private const string NormalMatrixVariableName = "uNormal";
@@ -46,13 +46,12 @@ namespace Szeminarium1_24_02_17_2
 
         static void Main(string[] args)
         {
+            // Create a fullscreen , resizable window
             WindowOptions windowOptions = WindowOptions.Default;
             windowOptions.WindowState = WindowState.Maximized;
             windowOptions.WindowBorder = WindowBorder.Resizable;
-            windowOptions.Title = "2 szeminárium";
-
+            windowOptions.Title = "StepMania";
             windowOptions.PreferredDepthBufferBits = 24;
-
             window = Window.Create(windowOptions);
 
             window.Load += Window_Load;
@@ -66,15 +65,15 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Load()
         {
-            //Console.WriteLine("Load");
 
-            // set up input handling
+            // Input setup, listen to keyboard events
             IInputContext inputContext = window.CreateInput();
             foreach (var keyboard in inputContext.Keyboards)
             {
                 keyboard.KeyDown += Keyboard_KeyDown;
             }
 
+            //init and background color
             Gl = window.CreateOpenGL();
             Gl.ClearColor(System.Drawing.Color.White);
 
@@ -82,7 +81,6 @@ namespace Szeminarium1_24_02_17_2
 
             LinkProgram();
 
-            //Gl.Enable(EnableCap.CullFace);
             Gl.Disable(GLEnum.CullFace);
 
 
@@ -90,6 +88,7 @@ namespace Szeminarium1_24_02_17_2
             Gl.DepthFunc(DepthFunction.Lequal);
         }
 
+        // Link shaders 
         private static void LinkProgram()
         {
             uint vshader = Gl.CreateShader(ShaderType.VertexShader);
@@ -118,16 +117,19 @@ namespace Szeminarium1_24_02_17_2
             Gl.DeleteShader(vshader);
             Gl.DeleteShader(fshader);
         }
+
+        // read shaders
         private static string ReadShader(string shaderFileName)
         {
             string path = Path.Combine("Shaders", shaderFileName);
             if (!File.Exists(path))
-                Console.WriteLine("Nem található shader fájl: " + path);
+                Console.WriteLine("Shader files not found: " + path);
 
             return File.ReadAllText(Path.Combine("Shaders", shaderFileName));
         }
 
 
+        //keyboard controls
         private static void Keyboard_KeyDown(IKeyboard keyboard, Key key, int arg3)
         {
             switch (key)
@@ -160,17 +162,80 @@ namespace Szeminarium1_24_02_17_2
         private static void Window_Update(double deltaTime)
         {
             cubeArrangementModel.AdvanceTime(deltaTime);
+
+            // spawning a random arrow
+            timeSinceLastSpawn += deltaTime;
+            if (timeSinceLastSpawn >= spawnCooldown)
+            {
+                timeSinceLastSpawn = 0.0;
+                SpawnRandomArrow();
+            }
+
+            // update all moving arrows and remove arrows if they reach target
+            for (int i = movingArrows.Count - 1; i >= 0; i--)
+            {
+                var arrow = movingArrows[i];
+                arrow.Update((float)deltaTime);
+
+                bool shouldRemove = arrow.Direction switch
+                {
+                    Direction.Up => arrow.Position.Z >= -0.90f,
+                    Direction.Down => arrow.Position.Z <= 0.90f,
+                    Direction.Left => arrow.Position.X <= 0.90f,   
+                    Direction.Right => arrow.Position.X >= -0.90f,  
+                    _ => false
+                };
+
+
+                if (shouldRemove)
+                {
+                    movingArrows.RemoveAt(i);
+                }
+            }
         }
+
+        private static void SpawnRandomArrow()
+        {
+            // random direction
+            var direction = (Direction)rng.Next(0, 4);
+            Console.WriteLine("Spawned arrow direction: " + direction);
+
+            // choose the starting pos based on direction
+            Vector3D<float> startPos = direction switch
+            {
+                Direction.Up => new Vector3D<float>(0f, 0.11f, -2.5f),
+                Direction.Down => new Vector3D<float>(0f, 0.11f, 2.5f),
+                Direction.Left => new Vector3D<float>(2.5f, 0.11f, 0f),
+                Direction.Right => new Vector3D<float>(-2.5f, 0.11f, 0f),
+                _ => new Vector3D<float>(0f, 0.11f, -2.5f)
+            };
+
+            // set color based on direction
+            float[] color = direction switch
+            {
+                Direction.Up => new float[] { 1f, 0f, 0f, 1f },     
+                Direction.Down => new float[] { 1f, 1f, 0f, 1f },   
+                Direction.Left => new float[] { 0f, 1f, 0f, 1f },   
+                Direction.Right => new float[] { 0f, 0f, 1f, 1f },  
+                _ => new float[] { 1f, 1f, 1f, 1f }
+            };
+
+            // create the moving arrow
+            var arrowModel = GlArrow.CreateArrow(Gl, color);
+            movingArrows.Add(new MovingArrow(arrowModel, startPos, direction));
+        }
+
+
+
 
         private static unsafe void Window_Render(double deltaTime)
         {
             //Console.WriteLine($"Render after {deltaTime} [s].");
 
             Gl.UseProgram(program);
-            // GL here
+
             Gl.Clear(ClearBufferMask.ColorBufferBit);
             Gl.Clear(ClearBufferMask.DepthBufferBit);
-
 
 
             SetViewMatrix();
@@ -203,7 +268,6 @@ namespace Szeminarium1_24_02_17_2
 
             var arrowTransforms = new[]
             {
-                // Felső nyíl (felfelé)
                 Matrix4X4.CreateScale<float>(0.9f) *
                 Matrix4X4.CreateRotationX((float)Math.PI / -2) *
                 Matrix4X4.CreateTranslation(0.0f, 0.11f, -0.90f),
@@ -231,32 +295,17 @@ namespace Szeminarium1_24_02_17_2
                 Gl.DrawElements(GLEnum.Triangles, arrows[j].IndexArrayLength, GLEnum.UnsignedInt, null);
                 Gl.BindVertexArray(0);
             }
+            foreach (var mArrow in movingArrows)
+            {
+                SetModelMatrix(mArrow.GetTransformMatrix());
+                Gl.BindVertexArray(mArrow.GlArrow.Vao);
+                Gl.DrawElements(GLEnum.Triangles, mArrow.GlArrow.IndexArrayLength, GLEnum.UnsignedInt, null);
+                Gl.BindVertexArray(0);
+            }
             //---------------------
 
 
-            //DrawPulsingCenterCube();
-
-            //DrawRevolvingCube();
-
         }
-
-        //private static unsafe void DrawRevolvingCube()
-        //{
-        //    Matrix4X4<float> diamondScale = Matrix4X4.CreateScale(0.25f);
-        //    Matrix4X4<float> rotx = Matrix4X4.CreateRotationX((float)Math.PI / 4f);
-        //    Matrix4X4<float> rotz = Matrix4X4.CreateRotationZ((float)Math.PI / 4f);
-        //    Matrix4X4<float> rotLocY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleOwnRevolution);
-        //    Matrix4X4<float> trans = Matrix4X4.CreateTranslation(1f, 1f, 0f);
-        //    Matrix4X4<float> rotGlobY = Matrix4X4.CreateRotationY((float)cubeArrangementModel.DiamondCubeAngleRevolutionOnGlobalY);
-        //    Matrix4X4<float> modelMatrix = diamondScale * rotx * rotz * rotLocY * trans * rotGlobY;
-
-        //    SetModelMatrix(modelMatrix);
-        //    Gl.BindVertexArray(glCubeRotating.Vao);
-        //    Gl.DrawElements(GLEnum.Triangles, glCubeRotating.IndexArrayLength, GLEnum.UnsignedInt, null);
-        //    Gl.BindVertexArray(0);
-        //}
-
-
 
         private static unsafe void SetModelMatrix(Matrix4X4<float> modelMatrix)
         {
@@ -269,6 +318,7 @@ namespace Szeminarium1_24_02_17_2
             Gl.UniformMatrix4(location, 1, false, (float*)&modelMatrix);
             CheckError();
 
+            // copy of the model matrix without translation components
             var modelMatrixWithoutTranslation = new Matrix4X4<float>(modelMatrix.Row1, modelMatrix.Row2, modelMatrix.Row3, modelMatrix.Row4);
             modelMatrixWithoutTranslation.M41 = 0;
             modelMatrixWithoutTranslation.M42 = 0;
@@ -278,11 +328,15 @@ namespace Szeminarium1_24_02_17_2
             Matrix4X4<float> modelInvers;
             Matrix4X4.Invert<float>(modelMatrixWithoutTranslation, out modelInvers);
             Matrix3X3<float> normalMatrix = new Matrix3X3<float>(Matrix4X4.Transpose(modelInvers));
+
+
             location = Gl.GetUniformLocation(program, NormalMatrixVariableName);
             if (location == -1)
             {
                 throw new Exception($"{NormalMatrixVariableName} uniform not found on shader.");
             }
+
+            // a kiszamito tt modelmatrix felroltese a shaderbe
             Gl.UniformMatrix3(location, 1, false, (float*)&normalMatrix);
             CheckError();
         }
@@ -321,14 +375,7 @@ namespace Szeminarium1_24_02_17_2
             }
             //----------------------
 
-            //face1Color = [0.5f, 0.0f, 0.0f, 1.0f];
-            //face2Color = [0.0f, 0.5f, 0.0f, 1.0f];
-            //face3Color = [0.0f, 0.0f, 0.5f, 1.0f];
-            //face4Color = [0.5f, 0.0f, 0.5f, 1.0f];
-            //face5Color = [0.0f, 0.5f, 0.5f, 1.0f];
-            //face6Color = [0.5f, 0.5f, 0.0f, 1.0f];
 
-            //glCubeRotating = GlCube.CreateCubeWithFaceColors(Gl, face1Color, face2Color, face3Color, face4Color, face5Color, face6Color);
         }
 
 
@@ -415,8 +462,6 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Closing()
         {
-            //glCubeCentered.ReleaseGlCube();
-            //glCubeRotating.ReleaseGlCube();
             foreach (var cube in platformCubes)
                 cube.ReleaseGlCube();
             Environment.Exit(0);
