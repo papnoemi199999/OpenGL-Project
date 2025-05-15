@@ -178,7 +178,7 @@ namespace Szeminarium1_24_02_17_2
             SetShininess();
 
             int i = 0;
-            float spacing = 1.27f; 
+            float spacing = 1.27f;
 
             for (int row = -1; row <= 1; row++)
             {
