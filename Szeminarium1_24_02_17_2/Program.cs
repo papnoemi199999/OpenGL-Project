@@ -3,6 +3,7 @@ using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace Szeminarium1_24_02_17_2
 {
@@ -19,6 +20,23 @@ namespace Szeminarium1_24_02_17_2
         private static double timeSinceLastSpawn = 0.0;
 
         private static GlObject fish;
+
+        // current pos
+        private static int fishX = 1; 
+        private static int fishZ = 1;
+
+        // target pos
+        private static int fishTargetX = 1;                     
+        private static int fishTargetZ = 1;
+
+        private static bool fishIsJumping = false;
+        private static float jumpTime = 0f;
+        private static float jumpDuration = 0.3f;
+
+
+        private static int score = 0;
+        private static bool gameOver = false;
+
 
 
         private static CameraDescriptor cameraDescriptor = new();
@@ -152,20 +170,64 @@ namespace Szeminarium1_24_02_17_2
                 case Key.U:
                     cameraDescriptor.IncreaseZXAngle();
                     break;
-                case Key.D:
+                case Key.L:
                     cameraDescriptor.DecreaseZXAngle();
                     break;
                 case Key.Space:
                     cubeArrangementModel.AnimationEnabeld = !cubeArrangementModel.AnimationEnabeld;
                     break;
+                case Key.W:
+                    if (!fishIsJumping && fishZ > 0)
+                    {
+                        fishTargetZ = fishZ - 1;
+                        fishTargetX = fishX;
+                        StartJump();
+                    }
+                    break;
+                case Key.S:
+                    if (!fishIsJumping && fishZ < 2)
+                    {
+                        fishTargetZ = fishZ + 1;
+                        fishTargetX = fishX;
+                        StartJump();
+                    }
+                    break;
+                case Key.A:
+                    if (!fishIsJumping && fishX > 0)
+                    {
+                        fishTargetX = fishX - 1;
+                        fishTargetZ = fishZ;
+                        StartJump();
+                    }
+                    break;
+                case Key.D:
+                    if (!fishIsJumping && fishX < 2)
+                    {
+                        fishTargetX = fishX + 1;
+                        fishTargetZ = fishZ;
+                        StartJump();
+                    }
+                    break;
+
+
             }
         }
+        private static void StartJump()
+        {
+            fishIsJumping = true;
+            jumpTime = 0f;
+        }
+
 
         private static void Window_Update(double deltaTime)
         {
+            // Skip update if game is over
+            if (gameOver)
+                return;
+
             cubeArrangementModel.AdvanceTime(deltaTime);
 
-            // spawning a random arrow
+            // Spawn new arrow if cooldown expired
             timeSinceLastSpawn += deltaTime;
             if (timeSinceLastSpawn >= spawnCooldown)
             {
@@ -173,28 +235,69 @@ namespace Szeminarium1_24_02_17_2
                 SpawnRandomArrow();
             }
 
-            // update all moving arrows and remove arrows if they reach target
+            // Update and remove arrows that left the screen
             for (int i = movingArrows.Count - 1; i >= 0; i--)
             {
                 var arrow = movingArrows[i];
                 arrow.Update((float)deltaTime);
 
-                bool shouldRemove = arrow.Direction switch
-                {
-                    Direction.Up => arrow.Position.Z >= -0.90f,
-                    Direction.Down => arrow.Position.Z <= 0.90f,
-                    Direction.Left => arrow.Position.X <= 0.90f,   
-                    Direction.Right => arrow.Position.X >= -0.90f,  
-                    _ => false
-                };
-
-
-                if (shouldRemove)
+                // Remove arrow if it moved out of bounds
+                if (arrow.Direction == Direction.Up && arrow.Position.Z > 1.5f ||
+                    arrow.Direction == Direction.Down && arrow.Position.Z < -1.5f ||
+                    arrow.Direction == Direction.Left && arrow.Position.X < -1.5f ||
+                    arrow.Direction == Direction.Right && arrow.Position.X > 1.5f)
                 {
                     movingArrows.RemoveAt(i);
                 }
             }
+
+            // Handle fish jump animation and logic
+            if (fishIsJumping)
+            {
+                jumpTime += (float)deltaTime;
+
+                // If jump is complete
+                if (jumpTime >= jumpDuration)
+                {
+                    jumpTime = 0f;
+                    fishX = fishTargetX;
+                    fishZ = fishTargetZ;
+                    fishIsJumping = false;
+
+                    // Only check for arrows if not landing in the center
+                    if (!(fishX == 1 && fishZ == 1))
+                    {
+                        float spacing = 1.27f;
+                        float expectedX = (fishX - 1) * spacing;
+                        float expectedZ = (fishZ - 1) * spacing;
+
+                        bool matched = false;
+
+                        // Check if an arrow is close to the landing position
+                        for (int i = movingArrows.Count - 1; i >= 0; i--)
+                        {
+                            var arrow = movingArrows[i];
+                            if (MathF.Abs(arrow.Position.X - expectedX) < 0.5f &&
+                                MathF.Abs(arrow.Position.Z - expectedZ) < 0.5f)
+                            {
+                                matched = true;
+                                movingArrows.RemoveAt(i);
+                                score++;
+                                break;
+                            }
+                        }
+
+                        // Game over if no arrow matched
+                        if (!matched)
+                        {
+                            gameOver = true;
+                        }
+                    }
+                }
+            }
         }
+
+
 
         private static void SpawnRandomArrow()
         {
@@ -309,19 +412,49 @@ namespace Szeminarium1_24_02_17_2
             }
             //---------------------
 
+            if (gameOver)
+            {
+                window.Title = $"GAME OVER - Final Score: {score}";
+            }
+            else
+            {
+                window.Title = $"StepMania - Score: {score}";
+            }
+
+
 
         }
 
         private static unsafe void DrawPulsingFish()
         {
             // set material uniform to rubber
+            float spacing = 1.27f;
+            float jumpProgress = MathF.Min(jumpTime / jumpDuration, 1f);
+
+            float currentX = fishX;
+            float currentZ = fishZ;
+            float height = 0f;
+
+            // jump
+            if (fishIsJumping)
+            {
+                currentX = fishX + (fishTargetX - fishX) * jumpProgress;
+                currentZ = fishZ + (fishTargetZ - fishZ) * jumpProgress;
+
+                // the degree of the jump
+                height = MathF.Sin(jumpProgress * MathF.PI) * 0.4f;
+            }
+
 
             var modelMatrix =
             Matrix4X4.CreateScale(0.11f) *
-            Matrix4X4.CreateRotationX((float)Math.PI / -2f) *  // <-- forgas X tengely menten
-            Matrix4X4.CreateTranslation(0f, 0.70f, 0f);
+            Matrix4X4.CreateRotationX((float)Math.PI / -2f) *
+            Matrix4X4.CreateTranslation(
+            (currentX - 1) * spacing,
+            0.70f + height,
+            (currentZ - 1) * spacing);
 
-                    SetModelMatrix(modelMatrix);
+            SetModelMatrix(modelMatrix);
 
             Gl.BindVertexArray(fish.Vao);
             Gl.DrawElements(GLEnum.Triangles, fish.IndexArrayLength, GLEnum.UnsignedInt, null);
