@@ -9,6 +9,8 @@ namespace Szeminarium1_24_02_17_2
 {
     internal static class Program
     {
+        private static GlCube skyBox;
+
         private static List<GlCube> platformCubes = new();
 
         private static List<GlArrow> arrows = new();
@@ -38,7 +40,7 @@ namespace Szeminarium1_24_02_17_2
         private static bool gameOver = false;
 
 
-
+      
         private static CameraDescriptor cameraDescriptor = new();
 
         private static CubeArrangementModel cubeArrangementModel = new();
@@ -68,7 +70,7 @@ namespace Szeminarium1_24_02_17_2
         {
             // Create a fullscreen , resizable window
             WindowOptions windowOptions = WindowOptions.Default;
-            windowOptions.WindowState = WindowState.Maximized;
+            //windowOptions.WindowState = WindowState.Maximized;
             windowOptions.WindowBorder = WindowBorder.Resizable;
             windowOptions.Title = "StepMania";
             windowOptions.PreferredDepthBufferBits = 24;
@@ -101,7 +103,7 @@ namespace Szeminarium1_24_02_17_2
 
             LinkProgram();
 
-            Gl.Disable(GLEnum.CullFace);
+            //Gl.Disable(GLEnum.CullFace);
 
 
             Gl.Enable(EnableCap.DepthTest);
@@ -421,9 +423,39 @@ namespace Szeminarium1_24_02_17_2
                 window.Title = $"StepMania - Score: {score}";
             }
 
+            DrawSkyBox();
+
 
 
         }
+        private static unsafe void DrawSkyBox()
+        {
+            Matrix4X4<float> modelMatrix = Matrix4X4.CreateScale(400f);
+            SetModelMatrix(modelMatrix);
+            Gl.BindVertexArray(skyBox.Vao);
+
+            int textureLocation = Gl.GetUniformLocation(program, TextureUniformVariableName);
+            if (textureLocation == -1)
+            {
+                throw new Exception($"{TextureUniformVariableName} uniform not found on shader.");
+            }
+            // set texture 0
+            Gl.Uniform1(textureLocation, 0);
+
+            Gl.ActiveTexture(TextureUnit.Texture0);
+            Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (float)GLEnum.Linear);
+            Gl.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (float)GLEnum.Linear);
+            Gl.BindTexture(TextureTarget.Texture2D, skyBox.Texture.Value);
+
+            Gl.DrawElements(GLEnum.Triangles, skyBox.IndexArrayLength, GLEnum.UnsignedInt, null);
+            Gl.BindVertexArray(0);
+
+            CheckError();
+            Gl.BindTexture(TextureTarget.Texture2D, 0);
+            CheckError();
+        }
+
+
 
         private static unsafe void DrawPulsingFish()
         {
@@ -503,7 +535,7 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetUpObjects()
         {
-            //// PLATFORM
+            // PLATFORM
 
             for (int row = -1; row <= 1; row++)
             {
@@ -535,13 +567,14 @@ namespace Szeminarium1_24_02_17_2
             }
             //----------------------
 
+            skyBox = GlCube.CreateInteriorCube(Gl, "");
             fish = ObjResourceReader.CreateTeapotWithColor(Gl, new float[] { 1f, 0.5f, 0f, 1f }); // narancssárga hal
         }
 
 
         private static unsafe void SetProjectionMatrix()
         {
-            var projectionMatrix = Matrix4X4.CreatePerspectiveFieldOfView<float>((float)Math.PI / 4f, 1024f / 768f, 0.1f, 100);
+            var projectionMatrix = Matrix4X4.CreatePerspectiveFieldOfView<float>((float)Math.PI / 4f, 1024f / 768f, 0.1f, 1000);
             int location = Gl.GetUniformLocation(program, ProjectionMatrixVariableName);
 
             if (location == -1)
@@ -622,8 +655,8 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Closing()
         {
-            foreach (var cube in platformCubes)
-                cube.ReleaseGlCube();
+            //foreach (var cube in platformCubes)
+            //    cube.ReleaseGlCube();
             Environment.Exit(0);
         }
 

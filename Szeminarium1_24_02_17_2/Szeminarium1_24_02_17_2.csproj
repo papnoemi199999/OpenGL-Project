@@ -10,26 +10,36 @@
 
   <ItemGroup>
     <None Remove="Resources\13001_Ryukin_Goldfish_v1_L3.obj" />
+    <None Remove="Resources\box.png" />
+    <None Remove="Resources\skybox.png" />
+    <None Remove="Shaders\FragmentShader.frag" />
+    <None Remove="Shaders\VertexShader.vert" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Resources\13001_Ryukin_Goldfish_v1_L3.obj">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
+    <EmbeddedResource Include="Resources\box.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\skybox.png" />
+    <EmbeddedResource Include="Shaders\FragmentShader.frag">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Shaders\VertexShader.vert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Silk.NET" Version="2.20.0" />
+    <PackageReference Include="StbImageSharp" Version="2.30.15" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.5" />
   </ItemGroup>
 
   <ItemGroup>
     <None Update="Resources\13001_Ryukin_Goldfish_diff.jpg">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Shaders\FragmentShader.frag">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Shaders\VertexShader.vert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
