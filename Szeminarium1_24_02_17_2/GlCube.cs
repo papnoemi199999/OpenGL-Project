@@ -5,11 +5,6 @@ namespace Szeminarium1_24_02_17_2
 {
     internal class GlCube : GlObject
     {
-        //public uint Vao { get; }
-        //public uint Vertices { get; }
-        //public uint Colors { get; }
-        //public uint Indices { get; }
-        //public uint IndexArrayLength { get; }
 
         public uint? Texture { get; private set; }
         private GlCube(uint vao, uint vertices, uint colors, uint indeces, uint indexArrayLength, GL gl, uint texture = 0)
@@ -18,19 +13,7 @@ namespace Szeminarium1_24_02_17_2
             Texture = texture;
         }
 
-
-        //private GL Gl;
-
-        //private GlCube(uint vao, uint vertices, uint colors, uint indeces, uint indexArrayLength, GL gl)
-        //{
-        //    this.Vao = vao;
-        //    this.Vertices = vertices;
-        //    this.Colors = colors;
-        //    this.Indices = indeces;
-        //    this.IndexArrayLength = indexArrayLength;
-        //    this.Gl = gl;
-        //}
-
+        //PLATFORM
         public static unsafe GlCube CreateCubeWithFaceColors(GL Gl, float[] face1Color, float[] face2Color, float[] face3Color, float[] face4Color, float[] face5Color, float[] face6Color)
         {
             uint vao = Gl.GenVertexArray();
@@ -161,7 +144,7 @@ namespace Szeminarium1_24_02_17_2
         }
 
 
-
+        //SKYBOX
         public static unsafe GlCube CreateInteriorCube(GL Gl, string textureResourceId)
         {
             uint vao = Gl.GenVertexArray();
@@ -291,14 +274,5 @@ namespace Szeminarium1_24_02_17_2
             return result;
         }
 
-
-        //internal void ReleaseGlCube()
-        //{
-        //    // always unbound the vertex buffer first, so no halfway results are displayed by accident
-        //    Gl.DeleteBuffer(Vertices);
-        //    Gl.DeleteBuffer(Colors);
-        //    Gl.DeleteBuffer(Indices);
-        //    Gl.DeleteVertexArray(Vao);
-        //}
     }
 }

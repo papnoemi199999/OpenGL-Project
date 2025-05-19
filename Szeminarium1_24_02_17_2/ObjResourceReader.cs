@@ -5,7 +5,7 @@ namespace Szeminarium1_24_02_17_2
 {
     internal class ObjResourceReader
     {
-        public static unsafe GlObject CreateTeapotWithColor(GL Gl, float[] faceColor)
+        public static unsafe GlObject CreateFishWithColor(GL Gl, float[] faceColor)
         {
             uint vao = Gl.GenVertexArray();
             Gl.BindVertexArray(vao);

@@ -192,21 +192,7 @@ namespace Szeminarium1_24_02_17_2
         /// <param name="minResolution"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        internal static unsafe GlObject CreateSphere(float radius, GL Gl)
-        {
-            Dictionary<string, int> vertexDescription2IndexTable = new Dictionary<string, int>();
-            List<float> vertexDescriptionList = new List<float>();
-            List<float> colorsList = new List<float>();
-            List<uint> triangleIndices = new List<uint>();
-
-            Func<double, double, Vector3D<float>> get3DPointFromUV = (double u, double v) => GetSphereVertexPostion(radius, u, v);
-            Func<double, double, Vector3D<float>, Vector3D<float>> sphereNormalCalculator = (double u, double v, Vector3D<float> v3D) => Vector3D.Normalize(v3D);
-
-            CreateTrainglesOfUVMesh(get3DPointFromUV, sphereNormalCalculator, vertexDescription2IndexTable, vertexDescriptionList, colorsList, triangleIndices);
-
-            return CreateGlObjectFromVertexDescriptions(Gl, vertexDescriptionList, colorsList, triangleIndices);
-        }
-
+        /// 
         private static unsafe void CreateTrainglesOfUVMesh(
             Func<double, double, Vector3D<float>> get3DPointFromUV,
             Func<double, double, Vector3D<float>, Vector3D<float>> get3DNormalFromUV,
@@ -262,24 +248,6 @@ namespace Szeminarium1_24_02_17_2
             }
 
             return vertexIndex;
-        }
-
-        private static Vector3D<float> GetSphereVertexPostion(float radius, double u, double v)
-        {
-            return new Vector3D<float>(
-                                    (float)(radius * Math.Cos(GetAlphaFromU(u)) * Math.Cos(GetBetaFromV(v))),
-                                    (float)(radius * Math.Sin(GetAlphaFromU(u))),
-                                    (float)(radius * Math.Cos(GetAlphaFromU(u)) * Math.Sin(GetBetaFromV(v))));
-        }
-
-        private static double GetBetaFromV(double v)
-        {
-            return v * 2 * Math.PI;
-        }
-
-        private static double GetAlphaFromU(double u)
-        {
-            return u * Math.PI - Math.PI / 2;
         }
     }
 }

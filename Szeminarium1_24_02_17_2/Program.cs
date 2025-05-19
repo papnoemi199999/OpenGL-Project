@@ -74,7 +74,6 @@ namespace Szeminarium1_24_02_17_2
         static void Main(string[] args)
         {
             WindowOptions windowOptions = WindowOptions.Default;
-            //windowOptions.WindowState = WindowState.Maximized;
             windowOptions.WindowBorder = WindowBorder.Resizable;
             windowOptions.Title = "StepMania";
             windowOptions.PreferredDepthBufferBits = 24;
@@ -91,6 +90,7 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Load()
         {
+
             var inputContext = window.CreateInput();
             keyboard = inputContext.Keyboards[0];
 
@@ -103,9 +103,14 @@ namespace Szeminarium1_24_02_17_2
             Gl = window.CreateOpenGL();
             Gl.ClearColor(System.Drawing.Color.White);
 
+
+            // create game objects
             SetUpObjects();
+
+
             LinkProgram();
 
+            // init ImGui
             controller = new ImGuiController(Gl, window, inputContext);
             ImGui.GetIO().FontGlobalScale = 1.5f;
 
@@ -160,28 +165,6 @@ namespace Szeminarium1_24_02_17_2
         {
             switch (key)
             {
-                //case Key.Left:
-                //    cameraDescriptor.DecreaseZYAngle();
-                //    break;
-                //    ;
-                //case Key.Right:
-                //    cameraDescriptor.IncreaseZYAngle();
-                //    break;
-                //case Key.Down:
-                //    cameraDescriptor.IncreaseDistance();
-                //    break;
-                //case Key.Up:
-                //    cameraDescriptor.DecreaseDistance();
-                //    break;
-                //case Key.U:
-                //    cameraDescriptor.IncreaseZXAngle();
-                //    break;
-                //case Key.L:
-                //    cameraDescriptor.DecreaseZXAngle();
-                //    break;
-                //case Key.Space:
-                //    cubeArrangementModel.AnimationEnabeld = !cubeArrangementModel.AnimationEnabeld;
-                //    break;
                 case Key.A:
                     if (!fishIsJumping && fishZ > 0)
                     {
@@ -306,8 +289,8 @@ namespace Szeminarium1_24_02_17_2
                         for (int i = movingArrows.Count - 1; i >= 0; i--)
                         {
                             var arrow = movingArrows[i];
-                            if (MathF.Abs(arrow.Position.X - expectedX) < 0.5f &&
-                                MathF.Abs(arrow.Position.Z - expectedZ) < 0.5f)
+                            if (MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
+                                MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f)
                             {
                                 matched = true;
                                 movingArrows.RemoveAt(i);
@@ -362,9 +345,6 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void Window_Render(double deltaTime)
         {
-            //Console.WriteLine($"Render after {deltaTime} [s].");
-
-
             Gl.Clear(ClearBufferMask.ColorBufferBit);
             Gl.Clear(ClearBufferMask.DepthBufferBit);
 
@@ -440,8 +420,11 @@ namespace Szeminarium1_24_02_17_2
             }
             //---------------------
 
+            //SKYBOX
             DrawSkyBox();
+            //---------------------
 
+            //GUI
             controller.Update((float)deltaTime);
             ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 200), ImGuiCond.Always);
 
@@ -464,7 +447,7 @@ namespace Szeminarium1_24_02_17_2
 
             ImGui.End();
             controller.Render();
-
+            //-----------------------
         }
         private static void RestartGame()
         {
@@ -514,8 +497,11 @@ namespace Szeminarium1_24_02_17_2
         {
             // set material uniform to rubber
             float spacing = 1.27f;
+
+            // calculate how far along the jump animation is (0 to 1)
             float jumpProgress = MathF.Min(jumpTime / jumpDuration, 1f);
 
+            //det current fish position to coordinates
             float currentX = fishX;
             float currentZ = fishZ;
             float height = 0f;
@@ -531,6 +517,7 @@ namespace Szeminarium1_24_02_17_2
             }
 
 
+            // correct position for fish
             var modelMatrix =
             Matrix4X4.CreateScale(0.11f) *
             Matrix4X4.CreateRotationX((float)Math.PI / -2f) *
@@ -539,17 +526,14 @@ namespace Szeminarium1_24_02_17_2
             0.70f + height,
             (currentZ - 1) * spacing);
 
+            //upload matrix to shader
             SetModelMatrix(modelMatrix);
 
+            // radw the fish object
             Gl.BindVertexArray(fish.Vao);
             Gl.DrawElements(GLEnum.Triangles, fish.IndexArrayLength, GLEnum.UnsignedInt, null);
             Gl.BindVertexArray(0);
 
-            //var modelMatrixForTable = Matrix4X4.CreateScale(0.02f, 0.02f, 0.02f);
-            //SetModelMatrix(modelMatrixForTable);
-            //Gl.BindVertexArray(table.Vao);
-            //Gl.DrawElements(GLEnum.Triangles, table.IndexArrayLength, GLEnum.UnsignedInt, null);
-            //Gl.BindVertexArray(0);
         }
 
         private static unsafe void SetModelMatrix(Matrix4X4<float> modelMatrix)
@@ -620,8 +604,11 @@ namespace Szeminarium1_24_02_17_2
             }
             //----------------------
 
+            //SKYBOX
             skyBox = GlCube.CreateInteriorCube(Gl, "");
-            fish = ObjResourceReader.CreateTeapotWithColor(Gl, new float[] { 1f, 0.5f, 0f, 1f }); // narancssárga hal
+
+            //FISH
+            fish = ObjResourceReader.CreateFishWithColor(Gl, new float[] { 1f, 0.5f, 0f, 1f }); // narancssárga hal
         }
 
 
@@ -648,34 +635,43 @@ namespace Szeminarium1_24_02_17_2
                 float spacing = 2f;
                 float jumpProgress = MathF.Min(jumpTime / jumpDuration, 1f);
 
+                // current fish position and height
                 float currentX = fishX;
                 float currentZ = fishZ;
                 float height = 2f;
 
+                // fish position during jump
                 if (fishIsJumping)
                 {
                     currentX = fishX + (fishTargetX - fishX) * jumpProgress;
                     currentZ = fishZ + (fishTargetZ - fishZ) * jumpProgress;
+
+                    // simulate jumping arc
                     height += MathF.Sin(jumpProgress * MathF.PI) * 0.4f;
                 }
 
+                // world position of the fish
                 Vector3D<float> fishWorldPos = new Vector3D<float>(
                     (currentX - 1) * spacing,
                     height,
                     (currentZ - 1) * spacing
                 );
 
+                // set camera slightly above the fish
                 Vector3D<float> cameraPos = fishWorldPos + new Vector3D<float>(0f, 10f, 0.0001f); 
                 Vector3D<float> targetPos = fishWorldPos;
 
+                // create view matrix from camera to fish
                 viewMatrix = Matrix4X4.CreateLookAt(cameraPos, targetPos, Vector3D<float>.UnitX);
 
             }
             else
             {
+                // default view matrix from camera descriptor (third-person)
                 viewMatrix = Matrix4X4.CreateLookAt(cameraDescriptor.Position, cameraDescriptor.Target, cameraDescriptor.UpVector);
             }
 
+            // upload view matrix to shader
             int location = Gl.GetUniformLocation(program, ViewMatrixVariableName);
             if (location == -1)
                 throw new Exception($"{ViewMatrixVariableName} uniform not found on shader.");
@@ -706,7 +702,6 @@ namespace Szeminarium1_24_02_17_2
             }
 
             Gl.Uniform3(location, 5f, 1f, 0f);
-            //Gl.Uniform3(location, cameraDescriptor.Position.X, cameraDescriptor.Position.Y, cameraDescriptor.Position.Z);
             CheckError();
         }
 
@@ -739,8 +734,6 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Closing()
         {
-            //foreach (var cube in platformCubes)
-            //    cube.ReleaseGlCube();
             controller?.Dispose();
 
             Environment.Exit(0);
