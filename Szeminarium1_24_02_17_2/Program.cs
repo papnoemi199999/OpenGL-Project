@@ -2,13 +2,15 @@
 using Silk.NET.Maths;
 using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
-using System.Reflection;
-using System.Text.RegularExpressions;
+using Silk.NET.OpenGL.Extensions.ImGui;
+using ImGuiNET;
 
 namespace Szeminarium1_24_02_17_2
 {
     internal static class Program
     {
+        private static ImGuiController controller;
+
         private static GlCube skyBox;
 
         private static List<GlCube> platformCubes = new();
@@ -21,6 +23,7 @@ namespace Szeminarium1_24_02_17_2
         private static double spawnCooldown = 3.0;
         private static double timeSinceLastSpawn = 0.0;
 
+        private static bool isFirstPersonView = false;
         private static GlObject fish;
 
         // current pos
@@ -40,7 +43,8 @@ namespace Szeminarium1_24_02_17_2
         private static bool gameOver = false;
 
 
-      
+        private static IKeyboard keyboard;
+
         private static CameraDescriptor cameraDescriptor = new();
 
         private static CubeArrangementModel cubeArrangementModel = new();
@@ -68,7 +72,6 @@ namespace Szeminarium1_24_02_17_2
 
         static void Main(string[] args)
         {
-            // Create a fullscreen , resizable window
             WindowOptions windowOptions = WindowOptions.Default;
             //windowOptions.WindowState = WindowState.Maximized;
             windowOptions.WindowBorder = WindowBorder.Resizable;
@@ -87,28 +90,28 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Load()
         {
+            var inputContext = window.CreateInput();
+            keyboard = inputContext.Keyboards[0];
 
-            // Input setup, listen to keyboard events
-            IInputContext inputContext = window.CreateInput();
             foreach (var keyboard in inputContext.Keyboards)
             {
                 keyboard.KeyDown += Keyboard_KeyDown;
             }
 
-            //init and background color
+            // init OpenGL
             Gl = window.CreateOpenGL();
             Gl.ClearColor(System.Drawing.Color.White);
 
             SetUpObjects();
-
             LinkProgram();
 
-            //Gl.Disable(GLEnum.CullFace);
-
+            controller = new ImGuiController(Gl, window, inputContext);
+            ImGui.GetIO().FontGlobalScale = 1.5f;
 
             Gl.Enable(EnableCap.DepthTest);
             Gl.DepthFunc(DepthFunction.Lequal);
         }
+
 
         // Link shaders 
         private static void LinkProgram()
@@ -156,29 +159,29 @@ namespace Szeminarium1_24_02_17_2
         {
             switch (key)
             {
-                case Key.Left:
-                    cameraDescriptor.DecreaseZYAngle();
-                    break;
-                    ;
-                case Key.Right:
-                    cameraDescriptor.IncreaseZYAngle();
-                    break;
-                case Key.Down:
-                    cameraDescriptor.IncreaseDistance();
-                    break;
-                case Key.Up:
-                    cameraDescriptor.DecreaseDistance();
-                    break;
-                case Key.U:
-                    cameraDescriptor.IncreaseZXAngle();
-                    break;
-                case Key.L:
-                    cameraDescriptor.DecreaseZXAngle();
-                    break;
-                case Key.Space:
-                    cubeArrangementModel.AnimationEnabeld = !cubeArrangementModel.AnimationEnabeld;
-                    break;
-                case Key.W:
+                //case Key.Left:
+                //    cameraDescriptor.DecreaseZYAngle();
+                //    break;
+                //    ;
+                //case Key.Right:
+                //    cameraDescriptor.IncreaseZYAngle();
+                //    break;
+                //case Key.Down:
+                //    cameraDescriptor.IncreaseDistance();
+                //    break;
+                //case Key.Up:
+                //    cameraDescriptor.DecreaseDistance();
+                //    break;
+                //case Key.U:
+                //    cameraDescriptor.IncreaseZXAngle();
+                //    break;
+                //case Key.L:
+                //    cameraDescriptor.DecreaseZXAngle();
+                //    break;
+                //case Key.Space:
+                //    cubeArrangementModel.AnimationEnabeld = !cubeArrangementModel.AnimationEnabeld;
+                //    break;
+                case Key.A:
                     if (!fishIsJumping && fishZ > 0)
                     {
                         fishTargetZ = fishZ - 1;
@@ -186,7 +189,7 @@ namespace Szeminarium1_24_02_17_2
                         StartJump();
                     }
                     break;
-                case Key.S:
+                case Key.D:
                     if (!fishIsJumping && fishZ < 2)
                     {
                         fishTargetZ = fishZ + 1;
@@ -194,7 +197,7 @@ namespace Szeminarium1_24_02_17_2
                         StartJump();
                     }
                     break;
-                case Key.A:
+                case Key.S:
                     if (!fishIsJumping && fishX > 0)
                     {
                         fishTargetX = fishX - 1;
@@ -202,13 +205,16 @@ namespace Szeminarium1_24_02_17_2
                         StartJump();
                     }
                     break;
-                case Key.D:
+                case Key.W:
                     if (!fishIsJumping && fishX < 2)
                     {
                         fishTargetX = fishX + 1;
                         fishTargetZ = fishZ;
                         StartJump();
                     }
+                    break;
+                case Key.F:
+                    isFirstPersonView = !isFirstPersonView;
                     break;
 
 
@@ -223,6 +229,25 @@ namespace Szeminarium1_24_02_17_2
 
         private static void Window_Update(double deltaTime)
         {
+            if (keyboard.IsKeyPressed(Key.Left))
+                cameraDescriptor.DecreaseZYAngle();
+
+            if (keyboard.IsKeyPressed(Key.Right))
+                cameraDescriptor.IncreaseZYAngle();
+
+            if (keyboard.IsKeyPressed(Key.Up))
+                cameraDescriptor.DecreaseDistance();
+
+            if (keyboard.IsKeyPressed(Key.Down))
+                cameraDescriptor.IncreaseDistance();
+
+            if (keyboard.IsKeyPressed(Key.U))
+                cameraDescriptor.IncreaseZXAngle();
+
+            if (keyboard.IsKeyPressed(Key.L))
+                cameraDescriptor.DecreaseZXAngle();
+
+
             // Skip update if game is over
             if (gameOver)
                 return;
@@ -299,8 +324,6 @@ namespace Szeminarium1_24_02_17_2
             }
         }
 
-
-
         private static void SpawnRandomArrow()
         {
             // random direction
@@ -339,11 +362,11 @@ namespace Szeminarium1_24_02_17_2
         {
             //Console.WriteLine($"Render after {deltaTime} [s].");
 
-            Gl.UseProgram(program);
 
             Gl.Clear(ClearBufferMask.ColorBufferBit);
             Gl.Clear(ClearBufferMask.DepthBufferBit);
 
+            Gl.UseProgram(program);
 
             SetViewMatrix();
             SetProjectionMatrix();
@@ -356,6 +379,7 @@ namespace Szeminarium1_24_02_17_2
 
 
             DrawPulsingFish();
+
 
             //// PLATFORM
             int i = 0;
@@ -414,16 +438,25 @@ namespace Szeminarium1_24_02_17_2
             }
             //---------------------
 
+            DrawSkyBox();
+
+            controller.Update((float)deltaTime);
+            ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 100), ImGuiCond.Always);
+
+            ImGui.Begin("Game Info");
+
             if (gameOver)
             {
-                window.Title = $"GAME OVER - Final Score: {score}";
+                ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), "GAME OVER!");
+                ImGui.Text($"Final Score: {score}");
             }
             else
             {
-                window.Title = $"StepMania - Score: {score}";
+                ImGui.Text($"Score: {score}");
             }
 
-            DrawSkyBox();
+            ImGui.End();
+            controller.Render();
 
 
 
@@ -588,13 +621,44 @@ namespace Szeminarium1_24_02_17_2
 
         private static unsafe void SetViewMatrix()
         {
-            var viewMatrix = Matrix4X4.CreateLookAt(cameraDescriptor.Position, cameraDescriptor.Target, cameraDescriptor.UpVector);
-            int location = Gl.GetUniformLocation(program, ViewMatrixVariableName);
+            Matrix4X4<float> viewMatrix;
 
-            if (location == -1)
+            if (isFirstPersonView)
             {
-                throw new Exception($"{ViewMatrixVariableName} uniform not found on shader.");
+                float spacing = 2f;
+                float jumpProgress = MathF.Min(jumpTime / jumpDuration, 1f);
+
+                float currentX = fishX;
+                float currentZ = fishZ;
+                float height = 2f;
+
+                if (fishIsJumping)
+                {
+                    currentX = fishX + (fishTargetX - fishX) * jumpProgress;
+                    currentZ = fishZ + (fishTargetZ - fishZ) * jumpProgress;
+                    height += MathF.Sin(jumpProgress * MathF.PI) * 0.4f;
+                }
+
+                Vector3D<float> fishWorldPos = new Vector3D<float>(
+                    (currentX - 1) * spacing,
+                    height,
+                    (currentZ - 1) * spacing
+                );
+
+                Vector3D<float> cameraPos = fishWorldPos + new Vector3D<float>(0f, 10f, 0.0001f); 
+                Vector3D<float> targetPos = fishWorldPos;
+
+                viewMatrix = Matrix4X4.CreateLookAt(cameraPos, targetPos, Vector3D<float>.UnitX);
+
             }
+            else
+            {
+                viewMatrix = Matrix4X4.CreateLookAt(cameraDescriptor.Position, cameraDescriptor.Target, cameraDescriptor.UpVector);
+            }
+
+            int location = Gl.GetUniformLocation(program, ViewMatrixVariableName);
+            if (location == -1)
+                throw new Exception($"{ViewMatrixVariableName} uniform not found on shader.");
 
             Gl.UniformMatrix4(location, 1, false, (float*)&viewMatrix);
             CheckError();
@@ -657,6 +721,8 @@ namespace Szeminarium1_24_02_17_2
         {
             //foreach (var cube in platformCubes)
             //    cube.ReleaseGlCube();
+            controller?.Dispose();
+
             Environment.Exit(0);
         }
 
