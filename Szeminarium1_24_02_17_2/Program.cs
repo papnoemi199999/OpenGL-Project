@@ -40,6 +40,7 @@ namespace Szeminarium1_24_02_17_2
 
 
         private static int score = 0;
+        private static int missed = 0;
         private static bool gameOver = false;
 
 
@@ -275,6 +276,7 @@ namespace Szeminarium1_24_02_17_2
                     arrow.Direction == Direction.Right && arrow.Position.X > 1.5f)
                 {
                     movingArrows.RemoveAt(i);
+                    missed++;
                 }
             }
 
@@ -441,7 +443,7 @@ namespace Szeminarium1_24_02_17_2
             DrawSkyBox();
 
             controller.Update((float)deltaTime);
-            ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 100), ImGuiCond.Always);
+            ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 200), ImGuiCond.Always);
 
             ImGui.Begin("Game Info");
 
@@ -449,18 +451,36 @@ namespace Szeminarium1_24_02_17_2
             {
                 ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), "GAME OVER!");
                 ImGui.Text($"Final Score: {score}");
+                if (ImGui.Button("Restart"))
+                {
+                    RestartGame();
+                }
             }
             else
             {
                 ImGui.Text($"Score: {score}");
+                ImGui.Text($"Missed: {missed}");
             }
 
             ImGui.End();
             controller.Render();
 
-
-
         }
+        private static void RestartGame()
+        {
+            score = 0;
+            missed = 0;
+            gameOver = false;
+            fishX = 1;
+            fishZ = 1;
+            fishTargetX = 1;
+            fishTargetZ = 1;
+            fishIsJumping = false;
+            jumpTime = 0f;
+            movingArrows.Clear();
+            timeSinceLastSpawn = 0.0;
+        }
+
         private static unsafe void DrawSkyBox()
         {
             Matrix4X4<float> modelMatrix = Matrix4X4.CreateScale(400f);
