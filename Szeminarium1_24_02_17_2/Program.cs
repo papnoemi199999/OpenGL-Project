@@ -4,6 +4,7 @@ using Silk.NET.OpenGL;
 using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using ImGuiNET;
+using System.Runtime.InteropServices;
 
 namespace Szeminarium1_24_02_17_2
 {
@@ -289,8 +290,29 @@ namespace Szeminarium1_24_02_17_2
                         for (int i = movingArrows.Count - 1; i >= 0; i--)
                         {
                             var arrow = movingArrows[i];
-                            if (MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
-                                MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f)
+
+                            bool isMatchingPosition = arrow.Direction switch
+                            {
+                                Direction.Up => MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
+                                                arrow.Position.Z >= expectedZ - 0.4f &&
+                                                arrow.Position.Z <= expectedZ + 0.1f,
+
+                                Direction.Down => MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
+                                                  arrow.Position.Z <= expectedZ + 0.4f &&
+                                                  arrow.Position.Z >= expectedZ - 0.1f,
+
+                                Direction.Left => MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f &&
+                                                  arrow.Position.X <= expectedX + 0.4f &&
+                                                  arrow.Position.X >= expectedX - 0.1f,
+
+                                Direction.Right => MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f &&
+                                                   arrow.Position.X >= expectedX - 0.4f &&
+                                                   arrow.Position.X <= expectedX + 0.1f,
+
+                                _ => false
+                            };
+
+                            if (isMatchingPosition)
                             {
                                 matched = true;
                                 movingArrows.RemoveAt(i);
