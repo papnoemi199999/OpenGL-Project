@@ -214,6 +214,26 @@ namespace Szeminarium1_24_02_17_2
             jumpTime = 0f;
         }
 
+
+        // ____________________________________________________________________________________________
+        // UPDATE _____________________________________________________________________________________
+
+        private static void Window_Update(double deltaTime)
+        {
+            // Skip update if game is over
+            if (gameOver)
+                return;
+
+            cubeArrangementModel.AdvanceTime(deltaTime);
+
+            UpdateKeyboard();
+
+            UpdateArrows(deltaTime);
+
+            UpdateFishJump(deltaTime);
+
+        }
+
         private static void UpdateKeyboard()
         {
             if (keyboard.IsKeyPressed(Key.Left))
@@ -277,20 +297,39 @@ namespace Szeminarium1_24_02_17_2
             }
         }
 
-        private static void Window_Update(double deltaTime)
+        private static void SpawnRandomArrow()
         {
-            // Skip update if game is over
-            if (gameOver)
-                return;
+            // random direction
+            var direction = (Direction)rng.Next(0, 4);
+            Console.WriteLine("Spawned arrow direction: " + direction);
 
-            cubeArrangementModel.AdvanceTime(deltaTime);
+            // choose the starting pos based on direction
+            Vector3D<float> startPos = direction switch
+            {
+                Direction.Up => new Vector3D<float>(0f, 0.11f, -2.5f),
+                Direction.Down => new Vector3D<float>(0f, 0.11f, 2.5f),
+                Direction.Left => new Vector3D<float>(2.5f, 0.11f, 0f),
+                Direction.Right => new Vector3D<float>(-2.5f, 0.11f, 0f),
+                _ => new Vector3D<float>(0f, 0.11f, -2.5f)
+            };
 
-            UpdateKeyboard();
+            // set color based on direction
+            float[] color = direction switch
+            {
+                Direction.Up => new float[] { 1f, 0f, 0f, 1f },
+                Direction.Down => new float[] { 1f, 1f, 0f, 1f },
+                Direction.Left => new float[] { 0f, 1f, 0f, 1f },
+                Direction.Right => new float[] { 0f, 0f, 1f, 1f },
+                _ => new float[] { 1f, 1f, 1f, 1f }
+            };
 
-            UpdateArrows(deltaTime);
+            // create the moving arrow
+            var arrowModel = GlArrow.CreateArrow(Gl, color);
+            movingArrows.Add(new MovingArrow(arrowModel, startPos, direction));
+        }
 
-
-          
+        private static void UpdateFishJump(double deltaTime)
+        {
             // Handle fish jump animation and logic
             if (fishIsJumping)
             {
@@ -358,39 +397,10 @@ namespace Szeminarium1_24_02_17_2
             }
         }
 
-        private static void SpawnRandomArrow()
-        {
-            // random direction
-            var direction = (Direction)rng.Next(0, 4);
-            Console.WriteLine("Spawned arrow direction: " + direction);
-
-            // choose the starting pos based on direction
-            Vector3D<float> startPos = direction switch
-            {
-                Direction.Up => new Vector3D<float>(0f, 0.11f, -2.5f),
-                Direction.Down => new Vector3D<float>(0f, 0.11f, 2.5f),
-                Direction.Left => new Vector3D<float>(2.5f, 0.11f, 0f),
-                Direction.Right => new Vector3D<float>(-2.5f, 0.11f, 0f),
-                _ => new Vector3D<float>(0f, 0.11f, -2.5f)
-            };
-
-            // set color based on direction
-            float[] color = direction switch
-            {
-                Direction.Up => new float[] { 1f, 0f, 0f, 1f },     
-                Direction.Down => new float[] { 1f, 1f, 0f, 1f },   
-                Direction.Left => new float[] { 0f, 1f, 0f, 1f },   
-                Direction.Right => new float[] { 0f, 0f, 1f, 1f },  
-                _ => new float[] { 1f, 1f, 1f, 1f }
-            };
-
-            // create the moving arrow
-            var arrowModel = GlArrow.CreateArrow(Gl, color);
-            movingArrows.Add(new MovingArrow(arrowModel, startPos, direction));
-        }
 
 
-
+        // ____________________________________________________________________________________________
+        // RENDER _____________________________________________________________________________________
 
         private static unsafe void Window_Render(double deltaTime)
         {
@@ -409,10 +419,38 @@ namespace Szeminarium1_24_02_17_2
             SetShininess();
 
 
-            DrawPulsingFish();
+            // RENDER OBJECTS
+            DrawFish();
+            PlatformRender();
+            ArrowsRender();
+            DrawSkyBox();
 
+            //GUI
+            controller.Update((float)deltaTime);
+            ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 200), ImGuiCond.Always);
 
-            //// PLATFORM
+            ImGui.Begin("Game Info");
+
+            if (gameOver)
+            {
+                ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), "GAME OVER!");
+                ImGui.Text($"Final Score: {score}");
+                if (ImGui.Button("Restart"))
+                {
+                    RestartGame();
+                }
+            }
+            else
+            {
+                ImGui.Text($"Score: {score}");
+                ImGui.Text($"Missed: {missed}");
+            }
+
+            ImGui.End();
+            controller.Render();
+        }
+        private static unsafe void PlatformRender()
+        {
             int i = 0;
             float spacing = 1.27f;
 
@@ -428,8 +466,11 @@ namespace Szeminarium1_24_02_17_2
                     i++;
                 }
             }
-            //---------------------
-            ///ARROWS
+
+        }
+
+        private static unsafe void ArrowsRender()
+        {
 
             var arrowTransforms = new[]
             {
@@ -477,37 +518,8 @@ namespace Szeminarium1_24_02_17_2
                 Gl.DrawElements(GLEnum.Triangles, shrinking.arrow.GlArrow.IndexArrayLength, GLEnum.UnsignedInt, null);
                 Gl.BindVertexArray(0);
             }
-            //---------------------
-
-            //SKYBOX
-            DrawSkyBox();
-            //---------------------
-
-            //GUI
-            controller.Update((float)deltaTime);
-            ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 200), ImGuiCond.Always);
-
-            ImGui.Begin("Game Info");
-
-            if (gameOver)
-            {
-                ImGui.TextColored(new System.Numerics.Vector4(1f, 0f, 0f, 1f), "GAME OVER!");
-                ImGui.Text($"Final Score: {score}");
-                if (ImGui.Button("Restart"))
-                {
-                    RestartGame();
-                }
-            }
-            else
-            {
-                ImGui.Text($"Score: {score}");
-                ImGui.Text($"Missed: {missed}");
-            }
-
-            ImGui.End();
-            controller.Render();
-            //-----------------------
         }
+
         private static void RestartGame()
         {
             score = 0;
@@ -552,7 +564,7 @@ namespace Szeminarium1_24_02_17_2
 
 
 
-        private static unsafe void DrawPulsingFish()
+        private static unsafe void DrawFish()
         {
             // set material uniform to rubber
             float spacing = 1.27f;
