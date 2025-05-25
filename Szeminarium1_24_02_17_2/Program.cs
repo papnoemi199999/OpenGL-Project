@@ -5,6 +5,7 @@ using Silk.NET.Windowing;
 using Silk.NET.OpenGL.Extensions.ImGui;
 using ImGuiNET;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 
 namespace Szeminarium1_24_02_17_2
 {
@@ -21,7 +22,7 @@ namespace Szeminarium1_24_02_17_2
         private static List<MovingArrow> movingArrows = new();
         private static Random rng = new();
 
-        private static double spawnCooldown = 3.0;
+        private static double spawnCooldown = 1.5;
         private static double timeSinceLastSpawn = 0.0;
 
         private static List<(MovingArrow arrow, float scale)> shrinkingArrows = new();
@@ -41,10 +42,13 @@ namespace Szeminarium1_24_02_17_2
         private static bool fishIsJumping = false;
         private static float jumpTime = 0f;
         private static float jumpDuration = 0.3f;
+        private static bool jumpHadHit = false;
 
 
+        private static bool jumpScored = false;
         private static int score = 0;
         private static int missed = 0;
+        private static int missedJumps = 0;
         private static bool gameOver = false;
 
 
@@ -212,6 +216,8 @@ namespace Szeminarium1_24_02_17_2
         {
             fishIsJumping = true;
             jumpTime = 0f;
+            jumpScored = false;
+            jumpHadHit = false;
         }
 
 
@@ -257,7 +263,10 @@ namespace Szeminarium1_24_02_17_2
 
         private static void UpdateArrows(double deltaTime)
         {
+            // increase time since last arrow spawn
             timeSinceLastSpawn += deltaTime;
+
+            // spawn new arrow if cooldown expired
             if (timeSinceLastSpawn >= spawnCooldown)
             {
                 timeSinceLastSpawn = 0.0;
@@ -266,13 +275,16 @@ namespace Szeminarium1_24_02_17_2
 
             float tolerance = 0.2f;
 
+            // uupdate moving arrows and check if they reached the center
             for (int i = movingArrows.Count - 1; i >= 0; i--)
             {
                 var arrow = movingArrows[i];
                 arrow.Update((float)deltaTime);
 
-                bool isAtCenter = MathF.Abs(arrow.Position.X) < tolerance && MathF.Abs(arrow.Position.Z) < tolerance;
+                bool isAtCenter = MathF.Abs(arrow.Position.X) < tolerance &&
+                                  MathF.Abs(arrow.Position.Z) < tolerance;
 
+                // if at center, start shrinking and remove from moving list
                 if (isAtCenter)
                 {
                     shrinkingArrows.Add((arrow, 1.0f));
@@ -280,22 +292,35 @@ namespace Szeminarium1_24_02_17_2
                 }
             }
 
+            // update shrinking arrows
             for (int i = shrinkingArrows.Count - 1; i >= 0; i--)
             {
                 var (arrow, scale) = shrinkingArrows[i];
                 scale -= shrinkSpeed * (float)deltaTime;
 
+                // if fully shrunk, count as missed
                 if (scale <= 0f)
                 {
                     shrinkingArrows.RemoveAt(i);
                     missed++;
+                    Console.WriteLine($"Missed arrows: {missed}");
+
+                    // trigger game over if too many total misses
+                    int totalMisses = missed + missedJumps;
+                    if (totalMisses > 5)
+                    {
+                        gameOver = true;
+                        Console.WriteLine("GAME OVER triggered due to too many missed arrows.");
+                    }
                 }
                 else
                 {
-                    shrinkingArrows[i] = (arrow, scale); 
+                    // update scale for ongoing shrink
+                    shrinkingArrows[i] = (arrow, scale);
                 }
             }
         }
+
 
         private static void SpawnRandomArrow()
         {
@@ -306,20 +331,20 @@ namespace Szeminarium1_24_02_17_2
             // choose the starting pos based on direction
             Vector3D<float> startPos = direction switch
             {
-                Direction.Up => new Vector3D<float>(0f, 0.11f, -2.5f),
-                Direction.Down => new Vector3D<float>(0f, 0.11f, 2.5f),
-                Direction.Left => new Vector3D<float>(2.5f, 0.11f, 0f),
-                Direction.Right => new Vector3D<float>(-2.5f, 0.11f, 0f),
+                Direction.Up => new Vector3D<float>(0f, 0.11f, -2.5f), // red
+                Direction.Down => new Vector3D<float>(0f, 0.11f, 2.5f), // yellow
+                Direction.Left => new Vector3D<float>(2.5f, 0.11f, 0f), // green
+                Direction.Right => new Vector3D<float>(-2.5f, 0.11f, 0f), // blue
                 _ => new Vector3D<float>(0f, 0.11f, -2.5f)
             };
 
             // set color based on direction
             float[] color = direction switch
             {
-                Direction.Up => new float[] { 1f, 0f, 0f, 1f },
-                Direction.Down => new float[] { 1f, 1f, 0f, 1f },
-                Direction.Left => new float[] { 0f, 1f, 0f, 1f },
-                Direction.Right => new float[] { 0f, 0f, 1f, 1f },
+                Direction.Up => new float[] { 1f, 0f, 0f, 1f }, // red
+                Direction.Down => new float[] { 1f, 1f, 0f, 1f }, // yellow
+                Direction.Left => new float[] { 0f, 1f, 0f, 1f }, //green
+                Direction.Right => new float[] { 0f, 0f, 1f, 1f }, //blue
                 _ => new float[] { 1f, 1f, 1f, 1f }
             };
 
@@ -330,72 +355,80 @@ namespace Szeminarium1_24_02_17_2
 
         private static void UpdateFishJump(double deltaTime)
         {
-            // Handle fish jump animation and logic
-            if (fishIsJumping)
+            if (!fishIsJumping) return;
+
+            // increase jump timer
+            jumpTime += (float)deltaTime;
+
+            // calculate current fish position in world space
+            float spacing = 1.27f;
+            float jumpProgress = MathF.Min(jumpTime / jumpDuration, 1f);
+            float currentX = fishX + (fishTargetX - fishX) * jumpProgress;
+            float currentZ = fishZ + (fishTargetZ - fishZ) * jumpProgress;
+
+            float fishWorldX = (currentX - 1) * spacing;
+            float fishWorldZ = (currentZ - 1) * spacing;
+
+            float hitboxSize = 0.12f;
+
+            // check for collisions with moving arrows
+            for (int i = movingArrows.Count - 1; i >= 0; i--)
             {
-                jumpTime += (float)deltaTime;
+                var arrow = movingArrows[i];
 
-                // If jump is complete
-                if (jumpTime >= jumpDuration)
+                float dx = MathF.Abs(fishWorldX - arrow.Position.X);
+                float dz = MathF.Abs(fishWorldZ - arrow.Position.Z);
+
+                if (dx < hitboxSize && dz < hitboxSize)
                 {
-                    jumpTime = 0f;
-                    fishX = fishTargetX;
-                    fishZ = fishTargetZ;
-                    fishIsJumping = false;
+                    bool isCenter = (fishTargetX == 1 && fishTargetZ == 1);
+                    Console.WriteLine(isCenter
+                        ? "\nCollision at center tile\nNo score."
+                        : "\nCollision outside center\nScore++");
 
-                    // Only check for arrows if not landing in the center
-                    if (!(fishX == 1 && fishZ == 1))
+                    Console.WriteLine($"Arrow position: ({arrow.Position.X:F2}, {arrow.Position.Z:F2})");
+                    Console.WriteLine($"X: {dx:F2}, Z: {dz:F2}\n\n");
+
+                    if (!isCenter)
                     {
-                        float spacing = 1.27f;
-                        float expectedX = (fishX - 1) * spacing;
-                        float expectedZ = (fishZ - 1) * spacing;
+                        // score if hit is not at center
+                        score++;
+                        jumpScored = true;
+                        Console.WriteLine("New Score: " + score);
+                    }
 
-                        bool matched = false;
+                    // mark that fish hit something
+                    jumpHadHit = true;
+                    movingArrows.RemoveAt(i);
+                }
+            }
 
-                        // Check if an arrow is close to the landing position
-                        for (int i = movingArrows.Count - 1; i >= 0; i--)
-                        {
-                            var arrow = movingArrows[i];
+            // end jump if time exceeded
+            if (jumpTime >= jumpDuration)
+            {
+                fishIsJumping = false;
+                fishX = fishTargetX;
+                fishZ = fishTargetZ;
+                Console.WriteLine($"Fish landed on tile [{fishX}, {fishZ}]");
 
-                            bool isMatchingPosition = arrow.Direction switch
-                            {
-                                Direction.Up => MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
-                                                arrow.Position.Z >= expectedZ - 0.4f &&
-                                                arrow.Position.Z <= expectedZ + 0.2f,
+                bool landedAtCenter = (fishTargetX == 1 && fishTargetZ == 1);
 
-                                Direction.Down => MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
-                                                  arrow.Position.Z <= expectedZ + 0.4f &&
-                                                  arrow.Position.Z >= expectedZ - 0.2f,
+                // count as missed jump if no hit, no score, not center
+                if (!jumpScored && !jumpHadHit && !landedAtCenter)
+                {
+                    missedJumps++;
+                    Console.WriteLine($"Missed jumps: {missedJumps}");
 
-                                Direction.Left => MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f &&
-                                                  arrow.Position.X <= expectedX + 0.4f &&
-                                                  arrow.Position.X >= expectedX - 0.2f,
-
-                                Direction.Right => MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f &&
-                                                   arrow.Position.X >= expectedX - 0.4f &&
-                                                   arrow.Position.X <= expectedX + 0.2f,
-
-                                _ => false
-                            };
-
-                            if (isMatchingPosition)
-                            {
-                                matched = true;
-                                movingArrows.RemoveAt(i);
-                                score++;
-                                break;
-                            }
-                        }
-
-                        // Game over if no arrow matched
-                        if (!matched)
-                        {
-                            gameOver = true;
-                        }
+                    int totalMisses = missed + missedJumps;
+                    if (totalMisses > 5)
+                    {
+                        gameOver = true;
+                        Console.WriteLine("GAME OVER triggered due to too many total misses.");
                     }
                 }
             }
         }
+
 
 
 
@@ -427,9 +460,18 @@ namespace Szeminarium1_24_02_17_2
 
             //GUI
             controller.Update((float)deltaTime);
-            ImGui.SetNextWindowSize(new System.Numerics.Vector2(200, 200), ImGuiCond.Always);
+            ImGui.SetNextWindowPos(new System.Numerics.Vector2(10, 10), ImGuiCond.Always);
+            ImGui.SetNextWindowSize(new System.Numerics.Vector2(320, 300), ImGuiCond.Always);
 
             ImGui.Begin("Game Info");
+
+            ImGui.TextColored(new System.Numerics.Vector4(0.8f, 0.8f, 0.1f, 1f), "HOW TO PLAY:");
+            ImGui.TextWrapped("- Use W/A/S/D to jump.");
+            ImGui.TextWrapped("- Hit arrows (not at center) to gain points.");
+            ImGui.TextWrapped("- Avoid missing jumps.");
+            ImGui.TextWrapped("- Game over after 5 total misses.");
+            ImGui.Separator();
+
 
             if (gameOver)
             {
@@ -443,7 +485,8 @@ namespace Szeminarium1_24_02_17_2
             else
             {
                 ImGui.Text($"Score: {score}");
-                ImGui.Text($"Missed: {missed}");
+                ImGui.Text($"Missed arrows: {missed}");
+                ImGui.Text($"Missed jumps: {missedJumps}");
             }
 
             ImGui.End();
@@ -454,7 +497,8 @@ namespace Szeminarium1_24_02_17_2
             int i = 0;
             float spacing = 1.27f;
 
-            for (int row = -1; row <= 1; row++)
+            for (int row = -1
+                ; row <= 1; row++)
             {
                 for (int col = -1; col <= 1; col++)
                 {
@@ -666,10 +710,10 @@ namespace Szeminarium1_24_02_17_2
             //ARROWS
             for (int i = 0; i < 4; i++)
             {
-                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 1f, 0f, 0f, 1f })); // piros
-                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 0f, 1f, 0f, 1f })); // zöld
-                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 0f, 0f, 1f, 1f })); // kék
-                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 1f, 1f, 0f, 1f })); // sárga
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 1f, 0f, 0f, 1f })); // red
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 0f, 1f, 0f, 1f })); // green
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 0f, 0f, 1f, 1f })); // blue
+                arrows.Add(GlArrow.CreateArrow(Gl, new float[] { 1f, 1f, 0f, 1f })); // yellow
 
 
             }
@@ -679,7 +723,7 @@ namespace Szeminarium1_24_02_17_2
             skyBox = GlCube.CreateInteriorCube(Gl, "");
 
             //FISH
-            fish = ObjResourceReader.CreateFishWithColor(Gl, new float[] { 1f, 0.5f, 0f, 1f }); // narancssárga hal
+            fish = ObjResourceReader.CreateFishWithColor(Gl, new float[] { 1f, 0.5f, 0f, 1f }); // orange fish
         }
 
 
@@ -729,7 +773,7 @@ namespace Szeminarium1_24_02_17_2
                 );
 
                 // set camera slightly above the fish
-                Vector3D<float> cameraPos = fishWorldPos + new Vector3D<float>(0f, 10f, 0.0001f); 
+                Vector3D<float> cameraPos = fishWorldPos + new Vector3D<float>(0f, 5f, 0.0001f); 
                 Vector3D<float> targetPos = fishWorldPos;
 
                 // create view matrix from camera to fish
