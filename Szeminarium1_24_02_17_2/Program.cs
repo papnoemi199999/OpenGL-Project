@@ -568,6 +568,7 @@ namespace Szeminarium1_24_02_17_2
         {
             score = 0;
             missed = 0;
+            missedJumps = 0;
             gameOver = false;
             fishX = 1;
             fishZ = 1;
