@@ -19,10 +19,13 @@ namespace Szeminarium1_24_02_17_2
         private static List<GlArrow> arrows = new();
 
         private static List<MovingArrow> movingArrows = new();
-
         private static Random rng = new();
+
         private static double spawnCooldown = 3.0;
         private static double timeSinceLastSpawn = 0.0;
+
+        private static List<(MovingArrow arrow, float scale)> shrinkingArrows = new();
+        private const float shrinkSpeed = 1.5f;
 
         private static bool isFirstPersonView = false;
         private static GlObject fish;
@@ -211,8 +214,7 @@ namespace Szeminarium1_24_02_17_2
             jumpTime = 0f;
         }
 
-
-        private static void Window_Update(double deltaTime)
+        private static void UpdateKeyboard()
         {
             if (keyboard.IsKeyPressed(Key.Left))
                 cameraDescriptor.DecreaseZYAngle();
@@ -231,15 +233,10 @@ namespace Szeminarium1_24_02_17_2
 
             if (keyboard.IsKeyPressed(Key.L))
                 cameraDescriptor.DecreaseZXAngle();
+        }
 
-
-            // Skip update if game is over
-            if (gameOver)
-                return;
-
-            cubeArrangementModel.AdvanceTime(deltaTime);
-
-            // Spawn new arrow if cooldown expired
+        private static void UpdateArrows(double deltaTime)
+        {
             timeSinceLastSpawn += deltaTime;
             if (timeSinceLastSpawn >= spawnCooldown)
             {
@@ -247,23 +244,53 @@ namespace Szeminarium1_24_02_17_2
                 SpawnRandomArrow();
             }
 
-            // Update and remove arrows that left the screen
+            float tolerance = 0.2f;
+
             for (int i = movingArrows.Count - 1; i >= 0; i--)
             {
                 var arrow = movingArrows[i];
                 arrow.Update((float)deltaTime);
 
-                // Remove arrow if it moved out of bounds
-                if (arrow.Direction == Direction.Up && arrow.Position.Z > 1.5f ||
-                    arrow.Direction == Direction.Down && arrow.Position.Z < -1.5f ||
-                    arrow.Direction == Direction.Left && arrow.Position.X < -1.5f ||
-                    arrow.Direction == Direction.Right && arrow.Position.X > 1.5f)
+                bool isAtCenter = MathF.Abs(arrow.Position.X) < tolerance && MathF.Abs(arrow.Position.Z) < tolerance;
+
+                if (isAtCenter)
                 {
+                    shrinkingArrows.Add((arrow, 1.0f));
                     movingArrows.RemoveAt(i);
-                    missed++;
                 }
             }
 
+            for (int i = shrinkingArrows.Count - 1; i >= 0; i--)
+            {
+                var (arrow, scale) = shrinkingArrows[i];
+                scale -= shrinkSpeed * (float)deltaTime;
+
+                if (scale <= 0f)
+                {
+                    shrinkingArrows.RemoveAt(i);
+                    missed++;
+                }
+                else
+                {
+                    shrinkingArrows[i] = (arrow, scale); 
+                }
+            }
+        }
+
+        private static void Window_Update(double deltaTime)
+        {
+            // Skip update if game is over
+            if (gameOver)
+                return;
+
+            cubeArrangementModel.AdvanceTime(deltaTime);
+
+            UpdateKeyboard();
+
+            UpdateArrows(deltaTime);
+
+
+          
             // Handle fish jump animation and logic
             if (fishIsJumping)
             {
@@ -295,19 +322,19 @@ namespace Szeminarium1_24_02_17_2
                             {
                                 Direction.Up => MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
                                                 arrow.Position.Z >= expectedZ - 0.4f &&
-                                                arrow.Position.Z <= expectedZ + 0.1f,
+                                                arrow.Position.Z <= expectedZ + 0.2f,
 
                                 Direction.Down => MathF.Abs(arrow.Position.X - expectedX) < 0.4f &&
                                                   arrow.Position.Z <= expectedZ + 0.4f &&
-                                                  arrow.Position.Z >= expectedZ - 0.1f,
+                                                  arrow.Position.Z >= expectedZ - 0.2f,
 
                                 Direction.Left => MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f &&
                                                   arrow.Position.X <= expectedX + 0.4f &&
-                                                  arrow.Position.X >= expectedX - 0.1f,
+                                                  arrow.Position.X >= expectedX - 0.2f,
 
                                 Direction.Right => MathF.Abs(arrow.Position.Z - expectedZ) < 0.4f &&
                                                    arrow.Position.X >= expectedX - 0.4f &&
-                                                   arrow.Position.X <= expectedX + 0.1f,
+                                                   arrow.Position.X <= expectedX + 0.2f,
 
                                 _ => false
                             };
@@ -438,6 +465,16 @@ namespace Szeminarium1_24_02_17_2
                 SetModelMatrix(mArrow.GetTransformMatrix());
                 Gl.BindVertexArray(mArrow.GlArrow.Vao);
                 Gl.DrawElements(GLEnum.Triangles, mArrow.GlArrow.IndexArrayLength, GLEnum.UnsignedInt, null);
+                Gl.BindVertexArray(0);
+            }
+
+            foreach (var shrinking in shrinkingArrows)
+            {
+                var scaleMatrix = Matrix4X4.CreateScale(shrinking.scale);
+                var modelMatrix = scaleMatrix * shrinking.arrow.GetTransformMatrix();
+                SetModelMatrix(modelMatrix);
+                Gl.BindVertexArray(shrinking.arrow.GlArrow.Vao);
+                Gl.DrawElements(GLEnum.Triangles, shrinking.arrow.GlArrow.IndexArrayLength, GLEnum.UnsignedInt, null);
                 Gl.BindVertexArray(0);
             }
             //---------------------
